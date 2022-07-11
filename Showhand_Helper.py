@@ -7,14 +7,16 @@ Version :   1.0
 Contact :   xiuyanming@gmail.com
 '''
 
+from email import message
 import tkinter as tk
+import itertools as its
 from tkinter import messagebox
 from copy import deepcopy
 
 program_vision = 1.0
 
 '''
-全局变量
+全局变量：
 '''
 root = tk.Tk()
 
@@ -118,23 +120,126 @@ class Helper(object):
         self.root = root
         self.gaming = False
 
+    def get_type_chance(self):
+        '''
+        计算每个玩家摸到某牌型的概率。
+        '''
+        message_total = ''
+        type_list = [0, 0, 0, 0, 0, 0, 0, 0, 0]  # 储存九种牌型。
+        for player in self.player_list:
+            # print(len(player.cards_have))
+            draw_num = 5 - len(player.cards_have)
+            for possible_draw in its.combinations(self.poker.cards, draw_num):
+                for one_card in possible_draw:
+                    player.cards_have.append(one_card)  # 摸牌
+                type = self.get_final_type(player.cards_have)
+                type_list[type-1] += 1
+                for i in range(draw_num):
+                    player.cards_have.pop()
+            # print(type_list)
+            total = 0
+            for ele in type_list:
+                total += ele
+            message = player.name + '摸到以下牌型的概率分别是：\n\n'
+            message += '同花顺：' + str(round(type_list[8]/total, 6)) + "; "  # 同花顺
+            message += '铁支：' + str(round(type_list[7]/total, 6)) + "; "  # 铁支
+            message += '葫芦：' + str(round(type_list[6]/total, 6)) + "; "  # 葫芦
+            message += '同花：' + str(round(type_list[5]/total, 6)) + ";\n"  # 同花
+            message += '顺子：' + str(round(type_list[4]/total, 6)) + "; "  # 顺子
+            message += '三条：' + str(round(type_list[3]/total, 6)) + "; "  # 三条
+            message += '两对：' + str(round(type_list[2]/total, 6)) + "; "  # 两对
+            message += '一对：' + str(round(type_list[1]/total, 6)) + "; "  # 一对
+            message += '散牌：' + str(round(type_list[0]/total, 6)) + "\n\n\n"  # 散牌
+            print(message)
+            message_total += message
+
+            type_list = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+            total = 0
+
+        top = tk.Toplevel()
+        top.geometry('900x600')
+        top.title('牌型预测结果')
+        label_type_result = tk.Label(
+            top, text=message_total, justify='left', font=('宋体', 13))
+        label_type_result.place(anchor='nw', x=50, y=20)
+        top.mainloop()
+        pass
+
     def get_win_chance(self):
+        '''
+        计算每个玩家的胜率。
+        '''
         top = tk.Toplevel()
         top.geometry('450x300')
-        top.title('正在建设中...')
+        top.title('胜率计算结果')
         top.mainloop()
+        pass
+
+    def get_final_type(self, cards):
+        '''
+        获取五张牌的牌型
+        '''
+        number_list = []  # one's number list. such as 8, 9, 9, 10, K.
+        suit_list = []  # one's suit list. such as ♠, ♠, ♥, ♣, ♦.
+        all_number = [8, 9, 10, 11, 12, 13, 14]
+        all_suit = ['♠', '♥', '♣', '♦']
+        number_quantity = [0] * 7
+        suit_quantity = [0] * 4
+
+        type_list = {9: '同花顺', 8: '铁支', 7: '葫芦', 6: '同花',
+                     5: '顺子', 4: '三条', 3: '两对', 2: '一对', 1: '散牌'}
+
+        for card in cards:
+            number_list.append(card.number)
+            suit_list.append(card.suit)
+
+        for i in range(0, 7, 1):
+            number_quantity[i] = number_list.count(all_number[i])
+        for i in range(0, 4, 1):
+            suit_quantity[i] = suit_list.count(all_suit[i])
+
+        if (5 in suit_quantity) and ((number_quantity[0:5] == [1]*5)
+                                     or (number_quantity[1:6] == [1]*5) or (number_quantity[2:7] == [1]*5)):  # straight flush
+            final_type = 9
+        elif (4 in number_quantity):  # Iron zhi
+            final_type = 8
+        elif (3 in number_quantity):
+            if (2 in number_quantity):  # full house
+                final_type = 7
+            else:  # three bar
+                final_type = 4
+        elif (5 in suit_quantity):  # flush
+            final_type = 6
+        elif ((number_quantity[0:5] == [1]*5)
+              or (number_quantity[1:6] == [1]*5) or (number_quantity[2:7] == [1]*5)):  # straight
+            final_type = 5
+        elif (number_quantity.count(2) == 2):  # two pairs
+            final_type = 3
+        elif (number_quantity.count(2) == 1):  # one pair
+            final_type = 2
+        else:  # o
+            final_type = 1
+
+        # print(number_quantity, suit_quantity)
+        # print(f"{self._name}的这个牌型是: {type_list[final_type]}")
+        return final_type
+
+    def get_final_score(self):
+        '''
+        获取五张牌的最终大小，以一个分数的形式来体现。
+        '''
         pass
 
     def check_player_num(self, button, entry):
         '''
-        异常处理
+        检测输入的玩家数量是否合法，并进行异常处理。
         '''
         try:
             player_num = int(entry.get())
         except:
-            messagebox.askretrycancel(
-                "警告", "进程没有响应。如果您选择重试，进程也不会有任何响应。但是在这个等待的过程中，您可能会产生进程可能会响应的错觉。\n您想要现在重试吗？")
-            # messagebox.showwarning(title='您好', message="操你妈的")
+            # messagebox.askretrycancel(
+            #     "警告", "进程没有响应。如果您选择重试，进程也不会有任何响应。但是在这个等待的过程中，您可能会产生进程可能会响应的错觉。\n您想要现在重试吗？")
+            messagebox.showwarning(title='您好', message="请输入一个2-5之间的数字")
             entry.delete(0, tk.END)
             return 0
 
@@ -155,6 +260,9 @@ class Helper(object):
             return 0
 
     def game_starts(self):
+        '''
+        在玩家人数合法的前提下开始游戏。
+        '''
         num = self.player_num
 
         for i in range(num):
@@ -263,6 +371,16 @@ class Helper(object):
 
         label_choose_suit = tk.Label(window, text='请选择要添加的牌的数值')
         label_choose_suit.place(anchor='nw', x=50, y=120)
+
+        # Note！！！！
+        # 接下来这些内容尝试过使用循环结构简洁地写，
+        # 但是这似乎会导致按钮所对应的、需要执行的函数的参数出现错误。
+        # 也就是不论我选什么面值，最后都会变成A。
+        # 在上面的“设置玩家按钮”中也出现了这一问题，
+        # 不论我点击哪一个Player，最后都会变成给最后提到的变量，也就是Player4发牌。
+        # 这一问题在进行搜索后没有得到明确的解决方案，
+        # 希望可以在未来找到解决方案，修改这些丑陋的复制代码。
+
         number_8 = tk.Button(
             window, text='8', command=lambda: self.add_card_to_player(player, suit, '8'))
         number_8.place(x=50, y=150)
@@ -333,6 +451,11 @@ class Helper(object):
         print('\n')
 
     def helper_main(self):
+        '''
+        梭哈助手的主函数，
+        在此实现主窗口的布局和功能按钮，
+        并进行不断的循环。
+        '''
         root.geometry('900x600')  # 窗口大小
         root.iconbitmap('icon.ico')  # 设置图标
         root.title(f'Showhand Helper{program_vision}')  # 窗口名称
@@ -343,7 +466,6 @@ class Helper(object):
         # 将文本内容放置在主窗口内
         text.place(anchor='n', x=450, y=0)
 
-        player_num = 0
         player_num_label = tk.Label(root, text='请输入玩家人数')
         player_num_label.place(anchor='nw', x=100, y=50)
         player_num_entry = tk.Entry(root)
@@ -353,23 +475,31 @@ class Helper(object):
         start_button.place(anchor='nw', x=100, y=150)
         # player_num = int(player_num_entry.get())
 
+        get_type_button = tk.Button(root, text="预测牌型",
+                                    command=lambda: self.get_type_chance())  # 预测牌型按钮
+        get_type_button.place(anchor='center', width=100,
+                              height=50, relx=0.24, rely=0.9)
+        cal_button = tk.Button(root, text="计算胜率",
+                               command=self.get_win_chance)  # 计算胜率按钮
+        cal_button.place(anchor='center', width=100,
+                         height=50, relx=0.40, rely=0.9)
+        restart_button = tk.Button(root, text="重新开始",
+                                   command=lambda: self.restart(start_button))  # 重新开始按钮
+        restart_button.place(anchor='center', width=100,
+                             height=50, relx=0.56, rely=0.9)
         quit_button = tk.Button(root, text="退出程序",
                                 command=root.destroy)  # 退出程序按钮
         quit_button.place(anchor='center', width=100,
-                          height=50, relx=0.7, rely=0.9)
-        cal_button = tk.Button(root, text="计算胜率",
-                               command=self.get_win_chance)  # 退出程序按钮
-        cal_button.place(anchor='center', width=100,
-                         height=50, relx=0.3, rely=0.9)
-        restart_button = tk.Button(root, text="重新开始",
-                                   command=lambda: self.restart(start_button))  # 退出程序按钮
-        restart_button.place(anchor='center', width=100,
-                             height=50, relx=0.5, rely=0.9)
+                          height=50, relx=0.72, rely=0.9)
         root.mainloop()
 
         return 0
 
     def restart(self, button):
+        '''
+        重新开始执行程序，
+        将玩家全部清空、牌堆重置。
+        '''
         self.poker = Poker()  # 重置牌堆（已知的和未知的）
         root.quit()  # 刷新界面
         cover = tk.Frame(root, height=300, width=800)  # 强行把组件盖住
